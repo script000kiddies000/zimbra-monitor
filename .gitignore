@@ -1,0 +1,27 @@
+# Konfigurasi aktif (berisi IP internal, domain, Telegram ID)
+config.yaml
+
+# File state runtime
+state.db
+tail_state.json
+*.db
+
+# Environment (berisi bot token)
+zimbra-monitor.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Dokumen internal
+PRD.md
+
+# Claude Code session files
+.claude/
+
+# OS
+.DS_Store

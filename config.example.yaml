@@ -1,0 +1,88 @@
+# Zimbra Mail Monitoring Bot — example config
+# Salin file ini ke config.yaml, lalu sesuaikan nilainya.
+#
+#   cp config.example.yaml config.yaml
+#   nano config.yaml
+
+# ── Mode operasi ──────────────────────────────────────────────────────────────
+# false  = fase kalibrasi: notifikasi tampil tapi tombol Lock/Reset/Block TIDAK
+#          aktif. Pakai minimal 1-2 minggu untuk sesuaikan threshold & CIDR.
+# true   = tombol aksi aktif dan dieksekusi langsung dari Telegram.
+actions_enabled: false
+
+# ── Path log & state ──────────────────────────────────────────────────────────
+log_path: /var/log/zimbra.log
+tail_state_path: /opt/zimbra-monitor/tail_state.json
+db_path: /opt/zimbra-monitor/state.db
+
+# ── Path binary Zimbra ────────────────────────────────────────────────────────
+# Zimbra punya Postfix sendiri — `mailq` bawaan OS tidak jalan di server Zimbra.
+zmprov_path: /opt/zimbra/bin/zmprov
+postqueue_path: /opt/zimbra/common/sbin/postqueue
+postsuper_path: /opt/zimbra/common/sbin/postsuper
+
+# ── Domain mail organisasimu ──────────────────────────────────────────────────
+# Dipakai rule queue_pileup — hanya hitung sender dari domain ini supaya
+# tidak ketiban backlog inbound (NDR/bounce dari domain eksternal).
+own_domains:
+  - "yourdomain.com"
+  # - "domain-lain.com"   # tambah jika multi-domain
+
+# ── Timezone ─────────────────────────────────────────────────────────────────
+# Dipakai untuk format waktu di notifikasi Telegram.
+# Daftar: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+timezone: Asia/Jakarta
+
+# ── Jaringan internal ─────────────────────────────────────────────────────────
+# IP/CIDR yang dianggap "internal" — request dari luar daftar ini dianggap
+# eksternal dan akan dimonitor. Gunakan notasi CIDR atau IP tunggal.
+# IP juga bisa ditambah on-the-fly via tombol "Whitelist IP" di Telegram.
+internal_cidrs:
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "192.168.0.0/16"
+  # Contoh VLAN spesifik (lebih presisi):
+  # - "10.1.0.0/24"
+  # - "10.2.0.0/24"
+
+# ── Rules ─────────────────────────────────────────────────────────────────────
+rules:
+  # Kirim > threshold email dalam window_minutes dari 1 IP eksternal
+  outbound_blast_external_ip:
+    window_minutes: 1
+    threshold: 50            # mulai dari angka konservatif, turunkan setelah kalibrasi
+
+  # 1 akun di-auth dari > distinct_ip_threshold IP eksternal berbeda dalam 1 jam
+  # (indikasi credential stuffing meski volume per IP rendah)
+  credential_stuffing_multi_ip:
+    window_minutes: 60
+    distinct_ip_threshold: 5
+
+  # Jumlah pesan di queue melebihi threshold (dipantau periodik)
+  queue_pileup:
+    threshold_messages: 100
+
+queue_check_interval_seconds: 60
+
+# ── Deduplikasi incident ──────────────────────────────────────────────────────
+incident:
+  # Incident dari akun yang sama dalam gap_timeout_minutes digabung ke 1 notif.
+  # 1440 = 24 jam — supaya tidak flood Telegram kalau serangan berlangsung lama.
+  gap_timeout_minutes: 1440
+  # Throttle edit pesan (Telegram batasi frekuensi edit per chat).
+  edit_throttle_seconds: 25
+
+# ── Telegram ──────────────────────────────────────────────────────────────────
+telegram:
+  # Token bot TIDAK disimpan di sini — diambil dari environment variable.
+  # Di /opt/zimbra-monitor/zimbra-monitor.env:
+  #   ZIMBRA_MONITOR_BOT_TOKEN=123456:ABC-xyz...
+  bot_token_env: ZIMBRA_MONITOR_BOT_TOKEN
+
+  # Chat ID tujuan notifikasi (bisa private chat atau grup).
+  # Cara dapat: kirim pesan ke bot, lalu cek https://api.telegram.org/bot<TOKEN>/getUpdates
+  admin_chat_id: 123456789          # ganti dengan chat ID kamu
+
+  # User ID admin — satu-satunya yang boleh menekan tombol aksi.
+  # Cara dapat: kirim /start ke @userinfobot
+  admin_user_id: 123456789          # ganti dengan user ID kamu
